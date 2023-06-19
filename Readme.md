@@ -2,7 +2,9 @@
 
 Banking App
 
-Este é um aplicativo de serviços bancários desenvolvido em Go usando o framework Proto.Actor e Gorilla Mux. O aplicativo fornece uma API para realizar transações bancárias, consultar resumos diários e gerar documentação Swagger. Pré-requisitos
+Este é um aplicativo de serviços bancários desenvolvido em Go usando o framework Proto.Actor e Gorilla Mux. O aplicativo fornece uma API para realizar transações bancárias, consultar resumos diários. 
+
+Pré-requisitos
 
 Certifique-se de ter as seguintes ferramentas instaladas em seu ambiente:
 
