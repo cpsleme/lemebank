@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/asynkron/protoactor-go/actor"
 	"github.com/boltdb/bolt"
 	log "github.com/sirupsen/logrus"
@@ -126,19 +125,8 @@ func (state *AccountActor) loadState() error {
 		if bucket == nil {
 			return nil // Bucket doesn't exist yet, no state to load
 		}
-		/*
-			data := bucket.Get([]byte("transactions"))
-			if data == nil {
-				return nil // No transactions stored
-			}
 
-			err := json.Unmarshal(data, &state.transactions)
-			if err != nil {
-				return err
-			}
-		*/
 		bucket.ForEach(func(k, v []byte) error {
-			fmt.Printf("key=%s, value=%s\n", k, v)
 			var t Transaction
 			err := json.Unmarshal(v, &t)
 			if err != nil {
