@@ -17,13 +17,13 @@ Clone este repositório para o seu diretório de trabalho:
 
 bash
 
-git clone https://github.com/cpsleme/LemeBank.git
+git clone https://github.com/cpsleme/lemebank.git
 
 Navegue até o diretório do projeto:
 
 bash
 
-cd banking-app
+cd lemebank
 
 Instale as dependências do Go usando o go mod:
 
@@ -51,15 +51,15 @@ No diretório do projeto, crie uma imagem do Docker executando o seguinte comand
 
 bash
 
-docker build -t banking-app .
+docker build -t lemebank-app .
 
-Isso criará uma imagem do Docker com o nome banking-app.
+Isso criará uma imagem do Docker com o nome lemebank-app.
 
 Após a criação da imagem, inicie o contêiner com o seguinte comando:
 
 bash
 
-docker run -p 8080:8080 banking-app
+docker run -p 8080:8080 lemebank-app
 
 Isso iniciará o contêiner e mapeará a porta 8080 do contêiner para a porta 8080 do host. O aplicativo estará acessível em http://localhost:8080.
 
@@ -67,9 +67,18 @@ Uso da API
 
 Uma vez que o aplicativo esteja em execução, você pode usar a API para realizar as seguintes operações:
 
-Lançamento de débito: POST /debit
-Lançamento de crédito: POST /credit
-Recuperação do resumo diário: GET /daily-summary?accountnumber=<account_number>&date=<date>
+Registrar uma conta:
+curl -X POST -H "Content-Type: application/json" -d '{"AccountNumber":"1234567890"}' http://localhost:8080/register-account
+
+Lançamento de débito: 
+curl -X POST -H "Content-Type: application/json" -d '{"AccountNumber":"1234567890","TransactionID":"txn001","amount":100}' http://localhost:8080/debit
+
+Lançamento de crédito:
+curl -X POST -H "Content-Type: application/json" -d '{"AccountNumber":"1234567890","TransactionID":"txn002","Amount":200}' http://localhost:8080/credit
+
+Recuperação do resumo diário: 
+curl -X GET "http://localhost:8080/daily-summary?accountnumber=1234567890&date=2023-06-20"
+
 
 Certifique-se de substituir <account_number> e pelos valores adequados ao fazer as solicitações.
 
