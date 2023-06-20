@@ -13,7 +13,7 @@ func api(system *actor.ActorSystem, bankingService *actor.PID) error {
 
 	router := mux.NewRouter()
 
-	router.HandleFunc("/register", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/register-account", func(w http.ResponseWriter, r *http.Request) {
 		var request RegisterAccount
 		err := json.NewDecoder(r.Body).Decode(&request)
 		if err != nil {
@@ -21,7 +21,11 @@ func api(system *actor.ActorSystem, bankingService *actor.PID) error {
 			return
 		}
 
-		response, err := system.Root.RequestFuture(bankingService, &request, 5*time.Second).Result()
+		newAccountNumber := request.AccountNumber
+		newActorAccount := system.Root.Spawn(actor.PropsFromProducer(func() actor.Actor { return &AccountActor{account: newAccountNumber, balance: 0} }))
+		request.AccountActor = newActorAccount
+
+		response, err := system.Root.RequestFuture(bankingService, &request, 5000*time.Second).Result()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -55,26 +59,7 @@ func api(system *actor.ActorSystem, bankingService *actor.PID) error {
 			return
 		}
 
-		response, err := system.Root.RequestFuture(bankingService, &request, 5*time.Second).Result()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		json.NewEncoder(w).Encode(response)
-	}).Methods("POST")
-
-	router.HandleFunc("/save", func(w http.ResponseWriter, r *http.Request) {
-		accountNumber := r.URL.Query().Get("accountnumber")
-
-		if accountNumber == "" {
-			http.Error(w, "Missing 'accountnumber' parameter", http.StatusBadRequest)
-			return
-		}
-
-		request := &PersistStateRequest{AccountNumber: accountNumber}
-
-		response, err := system.Root.RequestFuture(bankingService, request, 500*time.Second).Result()
+		response, err := system.Root.RequestFuture(bankingService, &request, 5000*time.Second).Result()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

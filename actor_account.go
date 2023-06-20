@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/asynkron/protoactor-go/actor"
 	"github.com/boltdb/bolt"
 	log "github.com/sirupsen/logrus"
@@ -31,31 +32,42 @@ func (state *AccountActor) Receive(context actor.Context) {
 		db, err := bolt.Open(dbFile, 0600, nil)
 		if err != nil {
 			log.Error("Can't create or open a database file.")
+			context.Respond(&RegistrationResponse{Success: false})
 		} else {
 			state.db = db
 			err = state.loadState()
 			if err != nil {
-				context.Respond(&PersistenceResponse{Success: false, Error: err.Error()})
-			} else {
-				context.Respond(&PersistenceResponse{Success: true})
+				log.Error()
+				context.Respond(&RegistrationResponse{Success: false})
 			}
 		}
+		context.Respond(&RegistrationResponse{Success: true})
 
 	case *DebitRequest:
 		if state.balance >= msg.Amount {
 			state.balance -= msg.Amount
-			state.transactions = append(state.transactions,
-				Transaction{ID: msg.TransactionID, Date: time.Now().Format("2006-01-02"), Amount: msg.Amount, Type: "debit"})
-			context.Respond(&DebitResponse{TransactionID: msg.TransactionID, Success: true})
+			t := Transaction{ID: msg.TransactionID, Date: time.Now().Format("2006-01-02"), Amount: msg.Amount, Type: "debit"}
+			err := state.saveState(t)
+			if err != nil {
+				context.Respond(&DebitResponse{TransactionID: msg.TransactionID, Success: false})
+			} else {
+				state.transactions = append(state.transactions, t)
+				context.Respond(&CreditResponse{TransactionID: msg.TransactionID, Success: true})
+			}
 		} else {
 			context.Respond(&DebitResponse{TransactionID: msg.TransactionID, Success: false})
 		}
 
 	case *CreditRequest:
 		state.balance += msg.Amount
-		state.transactions = append(state.transactions,
-			Transaction{ID: msg.TransactionID, Date: time.Now().Format("2006-01-02"), Amount: msg.Amount, Type: "credit"})
-		context.Respond(&CreditResponse{TransactionID: msg.TransactionID, Success: true})
+		t := Transaction{ID: msg.TransactionID, Date: time.Now().Format("2006-01-02"), Amount: msg.Amount, Type: "credit"}
+		err := state.saveState(t)
+		if err != nil {
+			context.Respond(&CreditResponse{TransactionID: msg.TransactionID, Success: false})
+		} else {
+			state.transactions = append(state.transactions, t)
+			context.Respond(&CreditResponse{TransactionID: msg.TransactionID, Success: true})
+		}
 
 	case *GetDailySummaryRequest:
 		totalDebit := 0.0
@@ -75,14 +87,6 @@ func (state *AccountActor) Receive(context actor.Context) {
 				TotalCredit: totalCredit,
 				Balance:     totalCredit - totalDebit})
 
-	case *PersistStateRequest:
-		err := state.saveState()
-		if err != nil {
-			context.Respond(&PersistenceResponse{Success: false, Error: err.Error()})
-		} else {
-			context.Respond(&PersistenceResponse{Success: true})
-		}
-
 	case *LoadStateRequest:
 		err := state.loadState()
 		if err != nil {
@@ -93,19 +97,19 @@ func (state *AccountActor) Receive(context actor.Context) {
 	}
 }
 
-func (state *AccountActor) saveState() error {
+func (state *AccountActor) saveState(t Transaction) error {
 	err := state.db.Update(func(tx *bolt.Tx) error {
 		bucket, err := tx.CreateBucketIfNotExists([]byte("account"))
 		if err != nil {
 			return err
 		}
 
-		data, err := json.Marshal(state.transactions)
+		data, err := json.Marshal(t)
 		if err != nil {
 			return err
 		}
 
-		err = bucket.Put([]byte("transactions"), data)
+		err = bucket.Put([]byte(t.ID), data)
 		if err != nil {
 			return err
 		}
@@ -122,16 +126,27 @@ func (state *AccountActor) loadState() error {
 		if bucket == nil {
 			return nil // Bucket doesn't exist yet, no state to load
 		}
+		/*
+			data := bucket.Get([]byte("transactions"))
+			if data == nil {
+				return nil // No transactions stored
+			}
 
-		data := bucket.Get([]byte("transactions"))
-		if data == nil {
-			return nil // No transactions stored
-		}
-
-		err := json.Unmarshal(data, &state.transactions)
-		if err != nil {
-			return err
-		}
+			err := json.Unmarshal(data, &state.transactions)
+			if err != nil {
+				return err
+			}
+		*/
+		bucket.ForEach(func(k, v []byte) error {
+			fmt.Printf("key=%s, value=%s\n", k, v)
+			var t Transaction
+			err := json.Unmarshal(v, &t)
+			if err != nil {
+				return err
+			}
+			state.transactions = append(state.transactions, t)
+			return nil
+		})
 
 		return nil
 	})
